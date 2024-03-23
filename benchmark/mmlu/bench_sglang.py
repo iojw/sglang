@@ -1,4 +1,5 @@
 import argparse
+from collections import Counter
 import json
 import os
 import time
@@ -88,16 +89,18 @@ def evaluate(args, subject, dev_df, test_df):
         backend=backend, num_threads=args.parallel)
     preds = [s["answer"].strip()[0] if len(s["answer"].strip()) > 0 else ""
              for s in states]
+    models = [s["model"] for s in states]
     latency = time.time() - tic
 
     cors = [pred == label for pred, label in zip(preds, labels)]
     acc = np.mean(cors)
     cors = np.array(cors)
+    model_counts = Counter(models)
 
-    print("Average accuracy {:.3f}, latency {:.2f}, #q: {} - {}".format(
-        acc, latency, len(prompts), subject))
+    print("Average accuracy {:.3f}, latency {:.2f}, #q: {} - {}, routing: {}".format(
+        acc, latency, len(prompts), subject, ", ".join([f"{k}: {v}" for k, v in model_counts.items()])))
 
-    return cors, acc, latency
+    return cors, acc, latency, model_counts
 
 
 def main(args):
@@ -105,15 +108,17 @@ def main(args):
 
     all_cors = []
     all_latencies = []
+    all_model_counts = Counter()
     num_requests = 0
 
     for subject in tqdm(subjects[:args.nsub]):
         dev_df = pd.read_csv(os.path.join(args.data_dir, "dev", subject + "_dev.csv"), header=None)[:args.ntrain]
         test_df = pd.read_csv(os.path.join(args.data_dir, "test", subject + "_test.csv"), header=None)
 
-        cors, acc, latency = evaluate(args, subject, dev_df, test_df)
+        cors, acc, latency, model_counts = evaluate(args, subject, dev_df, test_df)
         all_cors.append(cors)
         all_latencies.append(latency)
+        all_model_counts.update(model_counts)
         num_requests += len(test_df)
 
     total_latency = np.sum(all_latencies)
@@ -121,6 +126,9 @@ def main(args):
 
     weighted_acc = np.mean(np.concatenate(all_cors))
     print("Average accuracy: {:.3f}".format(weighted_acc))
+
+    print(f"Model counts: {', '.join([f'{k}: {v}' for k, v in all_model_counts.items()])}")
+    print(f"Model %: {', '.join([f'{k}: {v / num_requests * 100:.3f}%' for k, v in all_model_counts.items()])}")
 
     # Write results
     with open(args.result_file, "a") as fout:

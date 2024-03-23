@@ -101,7 +101,7 @@ class OpenAI(BaseBackend):
                 prompt = s.text_
 
             kwargs = sampling_params.to_openai_kwargs()
-            comp = openai_completion(
+            comp, model = openai_completion(
                 client=self.client,
                 is_chat=self.is_chat_model,
                 model=self.model_name,
@@ -111,7 +111,7 @@ class OpenAI(BaseBackend):
         elif sampling_params.dtype in [str, "str", "string"]:
             kwargs = sampling_params.to_openai_kwargs()
             kwargs.pop("stop")
-            comp = openai_completion(
+            comp, model = openai_completion(
                 client=self.client,
                 is_chat=self.is_chat_model,
                 model=self.model_name,
@@ -123,7 +123,7 @@ class OpenAI(BaseBackend):
         elif sampling_params.dtype in [int, "int"]:
             kwargs = sampling_params.to_openai_kwargs()
             kwargs.pop("stop")
-            comp = openai_completion(
+            comp, model = openai_completion(
                 client=self.client,
                 is_chat=self.is_chat_model,
                 model=self.model_name,
@@ -135,7 +135,7 @@ class OpenAI(BaseBackend):
         else:
             raise ValueError(f"Unknown dtype: {sampling_params.dtype}")
 
-        return comp, {}
+        return comp, model, {}
 
     def generate_stream(
         self,
@@ -238,6 +238,7 @@ def openai_completion(client, retries=3, is_chat=None, prompt=None, **kwargs):
                     kwargs.pop("stop")
                 ret = client.chat.completions.create(messages=prompt, **kwargs)
                 comp = ret.choices[0].message.content
+                model = ret.model
             else:
                 ret = client.completions.create(prompt=prompt, **kwargs)
                 if isinstance(prompt, (list, tuple)):
@@ -254,7 +255,7 @@ def openai_completion(client, retries=3, is_chat=None, prompt=None, **kwargs):
             logger.error(f"RuntimeError {e}.")
             raise e
 
-    return comp
+    return comp, model
 
 
 def openai_completion_stream(client, retries=3, is_chat=None, prompt=None, **kwargs):

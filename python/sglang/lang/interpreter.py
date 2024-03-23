@@ -426,13 +426,14 @@ class StreamExecutor:
                 else:
                     raise ValueError("Wrong type of stop in sampling parameters.")
             else:
-                comp, meta_info = self.backend.generate(
+                comp, model, meta_info = self.backend.generate(
                     self, sampling_params=sampling_params
                 )
 
             self.text_ += comp
 
             self.variables[name] = comp
+            self.variables["model"] = model
             self.meta_info[name] = meta_info
             self.variable_event[name].set()
         else:
