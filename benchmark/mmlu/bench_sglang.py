@@ -139,6 +139,7 @@ def main(args):
             "latency": round(total_latency, 3),
             "accuracy": round(weighted_acc, 3),
             "num_requests": num_requests,
+            "model_counts": all_model_counts,
             "other": {
                 "nsub": args.nsub,
                 "parallel": args.parallel,
